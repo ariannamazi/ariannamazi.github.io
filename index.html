@@ -1,8 +1,261 @@
-<html>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Contact-Aware Motion Refinement for Real-Time Digital Humans</title>
+  <link rel="stylesheet" href="style.css">
+</head>
 <body>
 
-<h1>Hello world.</h1>
-<p>Hello world.</p>
+<header>
+  <h1>Contact-Aware Motion Refinement for Real-Time Digital Humans</h1>
+  <p class="subtitle">Making AI-generated co-speech gestures physically plausible without sacrificing real-time performance</p>
+  <p class="team">CS184/284A Final Project Proposal &middot; Fall 2026</p>
+  <div class="members">
+    <div class="member"><span class="name">Jameson Hearn</span><span class="sid">3041729330</span></div>
+    <div class="member"><span class="name">Arian Namazi</span><span class="sid">3043239709</span></div>
+    <div class="member"><span class="name">Gregoire Marie Emile Georges Serres</span><span class="sid">3043246573</span></div>
+    <div class="member"><span class="name">Weishu Zhang</span><span class="sid">3041752847</span></div>
+  </div>
+</header>
+
+<nav>
+  <a href="#summary">Summary</a>
+  <a href="#problem">Problem</a>
+  <a href="#goals">Goals &amp; Deliverables</a>
+  <a href="#schedule">Schedule</a>
+  <a href="#resources">Resources</a>
+</nav>
+
+<main>
+
+  <!-- ===================== SUMMARY ===================== -->
+  <section id="summary">
+    <h2>Summary</h2>
+    <p>
+      Recent models can generate full-body human gestures directly from speech in real time, but the
+      resulting motion often contains physical artifacts such as sliding feet, floor penetration, and
+      unnatural joint rotations. Instead of building a new gesture generator, we will build a lightweight,
+      <strong>physics-aware refinement layer</strong> that sits on top of an existing pretrained model
+      (e.g. LiveGesture). It detects foot contacts and implausible poses, and corrects them using
+      <strong>inverse kinematics (IK)</strong> and motion constraints, while preserving the original gesture
+      timing and expressiveness and running continuously with minimal added latency.
+    </p>
+    <figure>
+      <img src="images/pipeline.svg" alt="Pipeline: speech, gesture model, contact detection, IK refinement, rendered avatar">
+      <figcaption>Figure 1: Planned pipeline. A pretrained speech-to-gesture model produces motion chunks, which our refinement layer corrects before rendering.</figcaption>
+    </figure>
+  </section>
+
+  <!-- ===================== PROBLEM ===================== -->
+  <section id="problem">
+    <h2>Problem Description</h2>
+
+    <h3>Context</h3>
+    <p>
+      Digital humans and virtual agents (avatars in video calls, virtual assistants, game characters) need
+      to move naturally while they speak. Streaming co-speech gesture models such as LiveGesture,
+      StreamTalk and GestureFAR can now generate full-body motion from live audio in real time. Their
+      output looks convincing at first glance, but these models learn motion purely from data and have no
+      explicit notion of physics or contact with the environment.
+    </p>
+
+    <h3>The problem</h3>
+    <p>Generated motion frequently shows artifacts such as:</p>
+    <ul>
+      <li><strong>Foot sliding:</strong> feet drift across the floor instead of staying planted.</li>
+      <li><strong>Ground penetration / floating:</strong> feet sink into or hover above the floor.</li>
+      <li><strong>Unnatural joint rotations:</strong> knees, elbows or wrists bend in implausible ways.</li>
+      <li><strong>Inconsistent transitions:</strong> visible jumps or jitter between consecutive motion chunks.</li>
+    </ul>
+    <figure>
+      <img src="images/foot-sliding.svg" alt="Illustration of foot sliding before refinement and a planted foot after refinement">
+      <figcaption>Figure 2: Foot sliding in generated motion (left) versus the goal of our refinement, a planted foot with the leg adjusted by IK (right).</figcaption>
+    </figure>
+
+    <h3>Why it matters</h3>
+    <p>
+      Small physical errors like foot skating immediately break the illusion of a believable character,
+      even if the gestures themselves are well-timed and expressive. Fixing them is important for any
+      interactive application of digital humans.
+    </p>
+
+    <h3>Why it is challenging</h3>
+    <p>There are three competing objectives that we need to balance:</p>
+    <ul>
+      <li><strong>Physical plausibility:</strong> feet should stay planted, joints should stay within natural limits.</li>
+      <li><strong>Expressiveness and naturalness:</strong> corrections must not erase or dampen the original gestures or break their synchronization with speech.</li>
+      <li><strong>Real-time performance:</strong> the motion arrives in a stream, chunk by chunk, so we cannot look far into the future and every correction must be fast.</li>
+    </ul>
+
+    <h3>Our approach (overview)</h3>
+    <ol>
+      <li><strong>Speech-driven motion generation:</strong> use an existing pretrained model (e.g. LiveGesture) to generate full-body motion from audio.</li>
+      <li><strong>Physical constraint detection:</strong> detect foot contacts with the floor and flag artifacts such as foot sliding, ground penetration and unnatural joint rotations.</li>
+      <li><strong>Contact-aware refinement:</strong> lock detected contacts in place and use inverse kinematics to adjust the legs (and other affected joints) while changing the rest of the pose as little as possible.</li>
+      <li><strong>Temporal consistency:</strong> blend corrections smoothly across consecutive motion chunks so no new jitter or sudden jumps are introduced.</li>
+      <li><strong>Real-time rendering and evaluation:</strong> visualize the original and refined animations side by side and compare them on plausibility, gesture quality, speech synchronization and latency.</li>
+    </ol>
+  </section>
+
+  <!-- ===================== GOALS ===================== -->
+  <section id="goals">
+    <h2>Goals and Deliverables</h2>
+
+    <h3>What we plan to deliver (baseline)</h3>
+    <ul>
+      <li>A working pipeline that runs a pretrained speech-to-gesture model on audio and outputs full-body motion.</li>
+      <li>A foot contact detector and simple artifact detection (foot sliding, ground penetration).</li>
+      <li>An IK-based refinement step that removes foot sliding and ground penetration while keeping upper-body gestures unchanged.</li>
+      <li>A viewer that renders the original and refined motion side by side.</li>
+      <li>A basic evaluation comparing original vs. refined motion on foot sliding, ground penetration and runtime.</li>
+    </ul>
+
+    <h3>What we hope to deliver (stretch goals)</h3>
+    <ul>
+      <li>Joint limit constraints to correct unnatural joint rotations (knees, elbows, wrists).</li>
+      <li>Fully streaming, chunk-by-chunk refinement with smooth transitions between chunks.</li>
+      <li>A live demo: speak into a microphone and watch the refined avatar respond in real time.</li>
+      <li>A small user study comparing perceived naturalness of original vs. refined motion.</li>
+      <li>Testing the refinement layer on a second gesture model to show it is model-independent.</li>
+    </ul>
+
+    <h3>How we will measure success</h3>
+    <ul>
+      <li><strong>Physical plausibility:</strong> amount of foot sliding, ground penetration and floating, and joint limit violations.</li>
+      <li><strong>Gesture quality:</strong> how much the refined motion deviates from the original, plus standard gesture metrics (e.g. FGD, diversity) on the BEAT2 dataset.</li>
+      <li><strong>Speech synchronization:</strong> beat alignment between gestures and audio, before and after refinement.</li>
+      <li><strong>Performance:</strong> added latency per chunk and overall frames per second.</li>
+    </ul>
+
+    <h3>Questions we plan to answer</h3>
+    <ul>
+      <li>Can we make AI-generated human motion more physically realistic without sacrificing real-time performance?</li>
+      <li>How much foot sliding and ground penetration can a lightweight IK-based step remove?</li>
+      <li>Do physical corrections reduce expressiveness or speech synchronization, and by how much?</li>
+      <li>How much latency does the refinement add, and is it still suitable for real-time interaction?</li>
+      <li>How can corrections be applied across consecutive motion chunks without introducing jitter or sudden transitions?</li>
+    </ul>
+  </section>
+
+  <!-- ===================== SCHEDULE ===================== -->
+  <section id="schedule">
+    <h2>Schedule</h2>
+    <table>
+      <tr>
+        <th style="width: 22%">Week</th>
+        <th>Tasks</th>
+      </tr>
+      <tr>
+        <td><strong>Week 1</strong><br>Nov 8 &ndash; Nov 14</td>
+        <td>
+          <ul>
+            <li>Submit project proposal (<strong>due Tue, Nov 10</strong>).</li>
+            <li>Read related papers; set up the pretrained gesture model (LiveGesture) and the BEAT2 data.</li>
+            <li>Generate first motion samples from audio and build a simple skeleton viewer.</li>
+          </ul>
+        </td>
+      </tr>
+      <tr>
+        <td><strong>Week 2</strong><br>Nov 15 &ndash; Nov 21</td>
+        <td>
+          <ul>
+            <li>Implement foot contact detection and artifact detection (sliding, penetration).</li>
+            <li>Implement a first IK solver for the legs and lock planted feet.</li>
+            <li>Show original vs. refined motion side by side; prepare milestone.</li>
+          </ul>
+        </td>
+      </tr>
+      <tr class="deadline">
+        <td>Sun, Nov 22</td>
+        <td>Graded Milestone due</td>
+      </tr>
+      <tr>
+        <td><strong>Week 3</strong><br>Nov 23 &ndash; Nov 29</td>
+        <td>
+          <ul>
+            <li>Make refinement work chunk by chunk in a streaming setting.</li>
+            <li>Add smooth blending between chunks to avoid jitter; add joint limit constraints (stretch).</li>
+            <li>Implement evaluation metrics (plausibility, gesture quality, sync, latency).</li>
+          </ul>
+        </td>
+      </tr>
+      <tr>
+        <td><strong>Week 4</strong><br>Nov 30 &ndash; Dec 6</td>
+        <td>
+          <ul>
+            <li>Run full evaluation and compare against the original model.</li>
+            <li>Polish rendering and build the demo (live microphone demo as stretch goal).</li>
+            <li>Write final report and record video.</li>
+          </ul>
+        </td>
+      </tr>
+      <tr class="deadline">
+        <td>Sun, Dec 6</td>
+        <td>Final deliverables (report and video) due</td>
+      </tr>
+      <tr class="deadline">
+        <td>Mon/Tue, Dec 7 &ndash; 8</td>
+        <td>Final presentations</td>
+      </tr>
+    </table>
+    <p class="note">All deadlines are at 11:59 PM Pacific Time, following the CS184/284A Fall 2026 project schedule.</p>
+  </section>
+
+  <!-- ===================== RESOURCES ===================== -->
+  <section id="resources">
+    <h2>Resources</h2>
+
+    <h3>References</h3>
+    <ol>
+      <li>
+        M. U. Saleem et al.
+        <a href="https://arxiv.org/abs/2604.10927"><em>LiveGesture: Streamable Co-Speech Gesture Generation Model</em></a>.
+        arXiv:2604.10927. &mdash; Our planned base model for real-time speech-to-gesture generation.
+      </li>
+      <li>
+        X. Zhang et al.
+        <a href="https://arxiv.org/abs/2608.01643"><em>StreamTalk: Streaming Co-Speech Gesture Generation with Key-Pose Anchoring</em></a>.
+        arXiv:2608.01643. &mdash; Addresses drift over long streaming sequences.
+      </li>
+      <li>
+        P. Liu et al.
+        <a href="https://arxiv.org/abs/2609.21576"><em>GestureFAR: Streaming Co-Speech Gesture Generation with Flow Autoregression</em></a>.
+        arXiv:2609.21576. &mdash; Quality vs. latency trade-off in streaming gesture generation.
+      </li>
+      <li>
+        E. Pinyoanuntapong et al.
+        <a href="https://arxiv.org/abs/2608.25734"><em>InteractGesture: Progressive Chunk Guidance for Continuous Streaming Co-Speech Gesture Control</em></a>.
+        arXiv:2608.25734. &mdash; Joint-level control and constraints across streaming chunks.
+      </li>
+    </ol>
+
+    <h3>Data</h3>
+    <ul>
+      <li>BEAT2 dataset (speech audio with full-body motion), used by all of the papers above.</li>
+    </ul>
+
+    <h3>Platform, hardware and software</h3>
+    <ul>
+      <li><strong>Language / frameworks:</strong> Python, PyTorch (for running the pretrained model), NumPy for the refinement.</li>
+      <li><strong>Body model:</strong> SMPL-X skeleton, as used by BEAT2.</li>
+      <li><strong>Rendering:</strong> a simple real-time viewer (e.g. Three.js in the browser or a Python/OpenGL viewer); Blender for final renders.</li>
+      <li><strong>Hardware:</strong> our own laptops for development and a GPU machine for running the gesture model.</li>
+    </ul>
+
+    <h3>Existing code we start from</h3>
+    <ul>
+      <li>Pretrained LiveGesture model and code (or another public streaming gesture model if not available).</li>
+      <li>Our own implementation of contact detection, IK refinement and evaluation.</li>
+    </ul>
+  </section>
+
+</main>
+
+<footer>
+  CS184/284A: Foundations of Computer Graphics and Imaging &middot; UC Berkeley &middot; Fall 2026
+</footer>
 
 </body>
 </html>
